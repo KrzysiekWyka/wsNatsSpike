@@ -1,8 +1,6 @@
-import WebSocket from 'ws';
-import IEvent from "./interfaces/event.interface";
+import WebSocket from "ws";
 import Timeout = NodeJS.Timeout;
 import logger from "./logger";
-import {IResponse} from "./interfaces/response.interface";
 
 let socket: WebSocket;
 
@@ -11,87 +9,66 @@ let pingTimeout: Timeout;
 const RECONNECT_TIMEOUT = 500;
 const SOCKET_TIMEOUT = 30000;
 
-const CLIENT_NAME = process.argv[2];
-
-const generateRandomNumber = () => Math.trunc(Math.random() * 100);
-
 const heartbeat = (socket: WebSocket) => {
-    logger.info('Extend pingTimeout');
+  logger.info("Extend pingTimeout");
 
-    clearTimeout(pingTimeout);
+  clearTimeout(pingTimeout);
 
-    pingTimeout = setTimeout(function() {
-        logger.info('Terminating socket...');
-
-        socket.terminate();
-
-    }, SOCKET_TIMEOUT + 1000);
+  pingTimeout = setTimeout(function() {
+    logger.info("Terminating socket...");
+    socket.terminate();
+  }, SOCKET_TIMEOUT + 1000);
 };
 
 const reconnect = () => {
-    logger.info(`Disconnected, reconnecting in ${RECONNECT_TIMEOUT}ms`);
+  logger.info(`Disconnected, reconnecting in ${RECONNECT_TIMEOUT}ms`);
 
-    setTimeout(() => {
-        logger.info("Reconnecting...");
+  setTimeout(() => {
+    logger.info("Reconnecting...");
 
-        socket.close();
-        socket.removeAllListeners();
+    socket.close();
+    socket.removeAllListeners();
 
-        start();
-    }, RECONNECT_TIMEOUT);
-};
-
-
-const askAboutMathSum = (x?: number, y?: number) => {
-    socket.send(JSON.stringify({
-        event: 'sum',
-        data: {
-            x: x || generateRandomNumber(),
-            y: y || generateRandomNumber()
-        }
-    } as IEvent));
-};
-
-const logIn = () => {
-    socket.send(JSON.stringify({
-        event: 'login',
-        data: {
-            ticket: 'admin',
-            clientName: CLIENT_NAME
-        }
-    } as IEvent));
+    start();
+  }, RECONNECT_TIMEOUT);
 };
 
 const start = () => {
-    // TODO: Should be wss
-    socket = new WebSocket('ws://localhost:8181');
+  // TODO: Should be wss
+  socket = new WebSocket("ws://localhost:3000", {
+    headers: {
+      Authorization:
+        "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJ1c2VyIjp7Il9pZCI6IjVkNGQ3OWFhNDJlZTUzODc3MGY5NDRlYiIsInN0YXR1cyI6IkFDVElWRSIsInBob25lTnVtYmVyIjoiNTAxNTAyNTAzIn0sImdlbmVyYXRpb25UaW1lIjoiMjAxOS0wOC0xMlQxNDo0NToyMi4yMzRaIiwicmVmcmVzaFRpbWUiOiIyMDE5LTA4LTEyVDE0OjQ1OjIyLjIzNFoifQ.w7ZcCKWf225RTZ9klfgUk2zKmQyuna1hwPkFZulFlGQTCjX6JIs46r5F0OKMbvkOdOUjqPmnSkMj_DSXXZ4NnQ"
+    }
+  });
 
-    socket.addEventListener('open', () => {
-        heartbeat(socket);
+  socket.addEventListener("open", () => {
+    heartbeat(socket);
+  });
 
-        logIn();
+  socket.addEventListener("message", ({ data }) => {
+    const response = JSON.parse(data.toString());
 
-        askAboutMathSum();
-    });
+    if (response.type === "PING") {
+      heartbeat(socket);
 
+      socket.send(JSON.stringify({ type: "PONG" }));
 
-    socket.addEventListener('message', ({data}) => {
-        const response: IResponse = JSON.parse(data);
+      return;
+    }
 
-        logger.info({data: response},`Received ${!response.ok? 'error ': ''}response from server`);
-    });
+    logger.info(response, `Received message from server`);
+  });
 
-    socket.addEventListener('close', e => {
-        clearTimeout(pingTimeout);
+  socket.addEventListener("close", e => {
+    clearTimeout(pingTimeout);
 
-        reconnect();
-    });
+    reconnect();
+  });
 
-    socket.on('ping', () => {
-        heartbeat(socket);
-    });
-
-    socket.on('error', () => {});
+  socket.on("error", data => {
+    console.log(data);
+  });
 };
 
 start();
