@@ -11,7 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.17.1",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.21",
     "nats": "^1.3.0",
     "nats-hemera": "^7.0.1",
     "pino": "^5.12.6",
